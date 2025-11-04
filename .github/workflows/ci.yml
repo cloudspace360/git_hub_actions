@@ -1,0 +1,22 @@
+name: CI Pipeline Demo
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  APP_NAME: MyApp
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build step
+        run: echo "Building $APP_NAME ..."
+
+      - name: Run tests
+        run: echo "Running tests for $APP_NAME ✅"
