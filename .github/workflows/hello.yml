@@ -1,0 +1,12 @@
+name: Hello World Workflow
+on: [push] # trigger on every push to any mentioned branch
+
+jobs:
+  say_hello:
+    runs-on: ubuntu-latest #Runners
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v4
+      - name: Print Hello Message
+        run: echo "Hello Machan, GitHub Actions is running now"
+  
