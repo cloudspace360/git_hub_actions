@@ -1,0 +1,380 @@
+name: CPT-ANGULAR-Search-Widget
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: CPT-ANGULAR-Search-Widget  # change if folder name is different
+
+    steps:
+      # 1) Checkout code
+      - uses: actions/checkout@v4
+
+      # 2) Setup Node.js
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      # 3) Install & build
+      - run: npm install
+      - run: npm run build
+
+      # 4) Black Duck scan (Synopsys Detect)
+      - name: Black Duck scan
+        env:
+          BLACKDUCK_URL: ${{ secrets.BLACKDUCK_URL }}
+          BLACKDUCK_API_TOKEN: ${{ secrets.BLACKDUCK_API_TOKEN }}
+        run: |
+          curl -s -L https://detect.synopsys.com/detect.sh -o detect.sh
+          chmod +x detect.sh
+          ./detect.sh \
+            --blackduck.url="$BLACKDUCK_URL" \
+            --blackduck.api.token="$BLACKDUCK_API_TOKEN" \
+            --detect.project.name="CPT-Search Widget UIaaS" \
+            --detect.project.version.name="1.20.0" \
+            --detect.source.path="."
+
+      # 5) Fortify SCA translate & scan
+      - name: Fortify scan
+        run: |
+          sourceanalyzer -b CPT-ANGULAR-Search-Widget -clean
+          sourceanalyzer -b CPT-ANGULAR-Search-Widget \
+            babel.config.js \
+            coverage \
+            jest.config.js \
+            node_modules \
+            package.json \
+            package-lock.json \
+            public \
+            README.md \
+            rollup.config.js \
+            scripts \
+            src
+          sourceanalyzer -b CPT-ANGULAR-Search-Widget \
+            -scan \
+            -f cpt.angular-search-widget1.fpr \
+            -verbose \
+            -logfile fortify-scan.log
+
+      # 6) Fortify upload placeholder (to be replaced with real command)
+      - name: Upload Fortify results
+        if: always()
+        env:
+          FORTIFY_URL: ${{ secrets.FORTIFY_URL }}
+          FORTIFY_TOKEN: ${{ secrets.FORTIFY_TOKEN }}
+        run: echo "Replace this with your actual Fortify upload command"
+*****************************************************************************************************
+name: CPT-ProductListing CI
+
+on:
+  push:
+    branches:
+      - main              # runs when code is pushed to main
+  workflow_dispatch:      # allows manual trigger from GitHub UI
+
+jobs:
+  build-and-scan:
+    # Self-hosted runner must have:
+    # - Node.js 18 (or allow setup-node to install it)
+    # - Java + Synopsys Detect JAR
+    # - Fortify SCA installed
+    runs-on: self-hosted
+
+    steps:
+      # 1. Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      # 3. Install dependencies
+      - name: Install npm dependencies
+        run: npm install --legacy-peer-deps
+
+      # 4. Build Svelte app
+      - name: Build application
+        run: npm run build
+
+      # 5. Black Duck scan (Synopsys Detect)
+      - name: Run Black Duck Detect
+        env:
+          BLACKDUCK_API_TOKEN: ${{ secrets.BLACKDUCK_API_TOKEN }}
+        run: |
+          java -jar /app/Synopsys/synopsys-detect-9.9.0.jar \
+            --blackduck.url=https://blackduck.eu.se.com \
+            --blackduck.api.token="$BLACKDUCK_API_TOKEN" \
+            --detect.project.name="CPT-Product Listing UIaaS" \
+            --detect.project.version.name="1.22.0" \
+            --detect.source.path="${{ github.workspace }}"
+
+      # 6. Fortify SCA (translate + scan)
+      - name: Run Fortify Scan
+        run: |
+          /app/Fortify/Fortify_SCA_24.2.0/bin/sourceanalyzer -b CPT-ProductListing -clean
+
+          /app/Fortify/Fortify_SCA_24.2.0/bin/sourceanalyzer -b CPT-ProductListing \
+            babel.config.js \
+            jest.config.js \
+            package.json \
+            package-lock.json \
+            public \
+            rollup.config.js \
+            scripts \
+            src
+
+          /app/Fortify/Fortify_SCA_24.2.0/bin/sourceanalyzer -b CPT-ProductListing \
+            -scan \
+            -f cpt.product-listing1.fpr
+
+      # 7. Upload Fortify results (placeholder – adapt to your environment)
+      - name: Upload Fortify results
+        env:
+          SSC_URL: https://wfsiaprd12196.gad.schneider-electric.com
+          SSC_TOKEN: ${{ secrets.FORTIFY_SSC_TOKEN }}
+        run: |
+          echo "Upload cpt.product-listing1.fpr to Fortify SSC here"
+          # Example if fortifyclient is available:
+          # fortifyclient uploadFPR \
+          #   -url "$SSC_URL" \
+          #   -authtoken "$SSC_TOKEN" \
+          #   -file cpt.product-listing1.fpr \
+          #   -application "CPT-Product Listing UIaaS" \
+          #   -version "release"
+******************************************************************************************
+name: CPT-InternalConsumer
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1) Checkout Internal Consumer repo (this repo)
+      - name: Checkout Internal Consumer
+        uses: actions/checkout@v4
+
+      # 2) Checkout Search Widget repo
+      - name: Checkout Search Widget
+        uses: actions/checkout@v4
+        with:
+          repository: E2E/competitor-product-search-widget
+          path: cpt-search-widget
+
+      # 3) Checkout Product Listing repo
+      - name: Checkout Product Listing
+        uses: actions/checkout@v4
+        with:
+          repository: E2E/competitor-product-listing
+          path: cpt-product-listing
+
+      # 4) Setup Node.js
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      # 5) Build Search Widget
+      - name: Build Search Widget
+        working-directory: cpt-search-widget
+        run: |
+          npm install
+          npm run build
+
+      # 6) Build Product Listing
+      - name: Build Product Listing
+        working-directory: cpt-product-listing
+        run: |
+          npm install
+          npm run build
+
+      # 7) Build Internal Consumer (Svelte app)
+      - name: Build Internal Consumer
+        run: |
+          npm install
+          npm run build
+
+      # 8) Package Internal Consumer + widgets into one zip
+      - name: Package Internal Consumer
+        run: |
+          mv public competitor-product-internal-consumer
+
+          rm -rf competitor-product-internal-consumer/assets/competitor-product-listing \
+                 competitor-product-internal-consumer/assets/competitor-product-search-widget
+
+          mkdir -p competitor-product-internal-consumer/assets
+
+          cp -r cpt-search-widget/public/assets/competitor-product-search-widget \
+                competitor-product-internal-consumer/assets
+
+          cp -r cpt-product-listing/public/assets/competitor-product-listing \
+                competitor-product-internal-consumer/assets
+
+          zip -r competitor-product-internal-consumer.zip competitor-product-internal-consumer
+
+      # 9) Configure SSH (for scp + ssh)
+      - name: Configure SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+
+      # 10) Upload zip to remote server
+      - name: Upload package to server
+        run: |
+          scp competitor-product-internal-consumer.zip \
+            "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/home/GAD/srv992840/CPT-releases-ANG/"
+
+      # 11) Run remote deploy script
+      - name: Run remote deploy
+        run: |
+          ssh "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" << 'EOF'
+            chmod -R 777 /home/GAD/srv992840/CPT-releases-ANG/
+            sudo -u ecofit /app/ecofit/competitor-product-tool/se/deployement/cpt-consumer.sh
+            rm -rf /home/GAD/srv992840/CPT-releases-ANG/*
+          EOF
+*********************************************************************************************************
+name: CPT Partner Consumer CI
+
+on:
+  push:
+    branches:
+      - main
+      - CPT_GUI_3.12-RC1   # same as Jenkins
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:        # manual run
+
+jobs:
+  build-test-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1) Get the code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2) Install Java 11 for Maven build
+      - name: Set up Java 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+          cache: maven
+
+      # 3) Build the project (like Jenkins mvn clean install)
+      - name: Build with Maven
+        run: mvn -B clean install
+
+      # 4) Save the WAR file as an artifact
+      - name: Upload WAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: se-cpt-public-consumer-war
+          path: target/*.war
+
+      # 5) Black Duck scan (runs only if secrets are configured)
+      - name: Black Duck scan
+        if: ${{ secrets.BLACKDUCK_URL && secrets.BLACKDUCK_API_TOKEN }}
+        uses: synopsys-sig/detect-action@v1
+        with:
+          detect_opts: >
+            --blackduck.url=${{ secrets.BLACKDUCK_URL }}
+            --blackduck.api.token=${{ secrets.BLACKDUCK_API_TOKEN }}
+            --detect.project.name=CPT-Public-Consumer
+            --detect.project.version.name=CPT-4.0_RC1-SNAPSHOT
+            --detect.source.path=.
+
+      # 6) Fortify scan + upload (runs only if secrets are configured)
+      - name: Fortify SCA scan & upload
+        if: ${{ secrets.FORTIFY_SSC_URL && secrets.FORTIFY_SSC_TOKEN }}
+        run: |
+          # Update rules
+          fortifyupdate -url "${{ secrets.FORTIFY_SSC_URL }}"
+          fortifyupdate -showInstalledRules
+
+          # Clean previous analysis
+          sourceanalyzer -b CPT-partner-consumer -clean
+
+          # Translate code
+          sourceanalyzer -b CPT-partner-consumer pom.xml README.md src target
+
+          # Scan & create FPR
+          sourceanalyzer -b CPT-partner-consumer \
+            -scan -f cpt.partner-consumer1.fpr \
+            -verbose -logfile fortify-scan.log
+
+          # Upload to Fortify SSC
+          fortifyclient uploadFPR \
+            -file cpt.partner-consumer1.fpr \
+            -application "CPT-Public-Consumer" \
+            -applicationVersion "release" \
+            -url "${{ secrets.FORTIFY_SSC_URL }}" \
+            -authtoken "${{ secrets.FORTIFY_SSC_TOKEN }}"
+********************************************************************************************
+name: CPT Partner Consumer CI
+
+on:
+  push:
+    branches:
+      - main
+      - CPT_GUI_3.12-RC1   # same as Jenkins
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:        # manual run
+
+jobs:
+  build-test-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1) Get the code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2) Install Java 11 for Maven build
+      - name: Set up Java 11
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+          cache: maven
+
+      # 3) Build the project (like Jenkins mvn clean install)
+      - name: Build with Maven
+        run: mvn -B clean install
+
+      # 4) Save the WAR file as an artifact
+      - name: Upload WAR artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: se-cpt-public-consumer-war
+          path: target/*.war
+
+      # 5) Black Duck scan (runs only if secrets are configured)
+      - name: Black Duck scan
+        if: ${{ secrets.BLACKDUCK_URL && secrets.BLACKDUCK_API_TOKEN }}
+        uses: synopsys-sig/detect-action@v1
+        with:
+          detect_opts: >
+            --blackduck.url=${{ secrets.BLACKDUCK_URL }}
+            --blackduck.api.token=${{ secrets.BLACKDUCK_API_TOKEN }}
+            --detect.project.name=CPT-Public-Consumer
+************************************************************************************************
