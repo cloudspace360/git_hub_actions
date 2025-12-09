@@ -11,4 +11,4 @@ jobs:
          - name: List files
            run: ls -ltra & pwd
          - name: Read Files
-           run: cat hello.yml
+           run: cat README.md
