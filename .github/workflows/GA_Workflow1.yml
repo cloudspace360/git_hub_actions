@@ -1,0 +1,12 @@
+name: My Test Workflow
+on: push
+jobs:
+    first_test_job:
+         runs-on: ubuntu-latest
+         steps:
+         - name: Welcome Message
+           run: echo "First Git Actions Job"
+         - name: List files
+           run: ls -ltra
+         - name: Read Files
+           run: cat helo.yml
