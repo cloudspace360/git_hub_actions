@@ -4,9 +4,11 @@ jobs:
     first_test_job:
          runs-on: ubuntu-latest
          steps:
+         - name: Checkout Repo
+           uses: actions/checkout@v4
          - name: Welcome Message
            run: echo "First Git Actions Job"
          - name: List files
            run: ls -ltra
          - name: Read Files
-           run: cat helo.yml
+           run: cat hello.yml
