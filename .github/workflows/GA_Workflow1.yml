@@ -9,6 +9,6 @@ jobs:
          - name: Welcome Message
            run: echo "First Git Actions Job"
          - name: List files
-           run: ls -ltra
+           run: ls -ltra & pwd
          - name: Read Files
            run: cat hello.yml
