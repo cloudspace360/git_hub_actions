@@ -9,9 +9,9 @@ jobs:
          - name: Exection
            run: |
               echo "Multiple Line commands"
-              ls -ltra
               cat README.md
               uname -m >> arch.txt
+              ls -ltra
 
         #  - name: List files
         #    run: ls -ltra & pwd
