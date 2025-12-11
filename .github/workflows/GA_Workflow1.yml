@@ -6,9 +6,14 @@ jobs:
          steps:
          - name: Checkout Repo
            uses: actions/checkout@v4
-         - name: Welcome Message
-           run: echo "First Git Actions Job"
-         - name: List files
-           run: ls -ltra & pwd
-         - name: Read Files
-           run: cat README.md
+         - name: Exection
+           run: |
+              echo "Multiple Line commands"
+              ls -ltra
+              cat README.md
+              uname -m >> arch.txt
+
+        #  - name: List files
+        #    run: ls -ltra & pwd
+        #  - name: Read Files
+        #    run: cat README.md
